@@ -1,0 +1,324 @@
+---
+title: "PS1"
+author: "Daniel Rubio"
+format: html
+editor: visual
+---
+
+# PS1
+
+Daniel Rubio, 9/12/24
+
+As an aid to my problem solving, I used UM GPT to probe for explanations when I was confused, and for suggestions of possible built in functions to use. I did not copy and paste the prompts into the AI, but rather used it to answer the questions I had as they arose.
+
+# Problem 1: Wine Data
+
+## (a)
+
+Here I read in the square data from wine.data into a var called df:
+
+```{r}
+df <- read.csv("wine.data")
+```
+
+wine.names does not seem like a file that is easy to parse with code, therefore I manually created a vector for the names:
+
+```{r}
+names <- c("class", "alcohol", "malic acid", "ash", "ash_alcalinity", "magnesium", "phenols", "flavanoids", "nf_phenols", "proanthocyanins", "color", "hue","OD", "proline")
+```
+
+Add the names to df:
+
+```{r}
+colnames(df) <- names 
+head(df)
+```
+
+## (b)
+
+Instances according to wine.names: 1: 59, 2: 71, 3: 48
+
+```{r}
+class_count <- table(df$class) 
+print(class_count) 
+print(nrow(df))
+```
+
+There are 177 objects, which 177 = 58+71+48, so wine.names was wrong
+
+## (c.1)
+
+```{r}
+abv_color_cor <-cor(df$alcohol,df$color)
+print(abv_color_cor)
+```
+
+## (c.2)
+
+I isolated each class into its own sub-dataframe and found the correlation
+
+```{r}
+df1 <- df[df$class == 1,]
+class1_cor <-cor(df1$alcohol,df1$color)
+
+df2 <- df[df$class == 2,]
+class2_cor <-cor(df2$alcohol,df2$color)
+
+df3 <- df[df$class == 3,]
+class3_cor <-cor(df3$alcohol,df3$color)
+print(c(class1_cor,class2_cor,class3_cor))
+```
+
+Class 1 has the highest correlation at 0.41, followed by 3 with 0.35, then 2 with 0.27
+
+## (c.3)
+
+```{r}
+brightest_abv <- df$alcohol[which.max(df$color)]
+print(brightest_abv)
+```
+
+## (c.4)
+
+```{r}
+n_pro_over_ash <- nrow(df[df$proanthocyanins > df$ash,]) 
+pro_over_ash_percentage <- 100*n_pro_over_ash/nrow(df)
+print(pro_over_ash_percentage)
+```
+
+## (d)
+
+```{r}
+mean_vals <- colMeans(df)
+mean_vals[1] <- 0 
+mean_by_class <- aggregate(.~class,data=df,FUN=mean)
+mean_vals <- rbind(mean_vals, mean_by_class)
+print(mean_vals)
+```
+
+## (e)
+
+```{r}
+a_b <-t.test(df1$phenols,df2$phenols) 
+b_c <-t.test(df2$phenols,df3$phenols) 
+a_c <-t.test(df1$phenols,df3$phenols)
+```
+
+```{r}
+print(a_b)
+```
+
+```{r}
+print(b_c)
+```
+
+```{r}
+print(a_c)
+```
+
+Since all three of the P values are less than 0.5 (almost zero in fact) and the 95% confidence interval does not include zero we can say that the phenol concentration are distinct between the three classes of wines.
+
+```{r}
+rm(list=ls())
+```
+
+# Problem 2: Ask A Manager
+
+## (a)
+
+```{r}
+df <- read.csv("AskAManager.csv") 
+```
+
+## (b)
+
+```{r}
+names <- c("entry","datetime","age","industry","title", "job_context", "salary","bonus","currency","currency_other", "income_context","country","us_state","city","experience", "field_experience","education","gender","race_s")
+colnames(df) <- names
+print(head(df))
+```
+
+## (c)
+
+```{r}
+print(nrow(df)) 
+df <- df[df$currency == "USD",] 
+print(nrow(df))
+```
+
+## (d)
+
+```{r}
+print(nrow(df))
+ages <- table(df$age) 
+print(ages) 
+df <- df[df$age != "under 18",] 
+print(nrow(df))
+```
+
+There are 13 people listed as "under 18" so we can remove them off the bat.
+
+```{r}
+exps <- table(df$experience)
+f_exps <- table(df$field_experience) 
+time_order <-c("1 year or less","2 - 4 years","5-7 years","18-24", "8 - 10 years","11 - 20 years","25-34", "21 - 30 years","35-44", "31 - 40 years","45-54", "41 years or more","55-64", "65 or over")
+
+df$age_f <- factor(df$age,levels=time_order,ordered=TRUE) 
+df$experience_f <- factor(df$experience,levels=time_order,ordered=TRUE) 
+df$field_experience_f <- factor(df$field_experience,levels=time_order,ordered=TRUE)
+
+```
+
+The rationale for this ranking is to take the high of the age range and subtract 18, to see what is the max possible amount of experience that can be true for that range, such that: 18-24 -\> 6 years, 25-34 -\> 16 years, 35-44 -\> 26 years, 45-54 -\> 36 years, and a 55-64 -\> 46. When comparing as factors by rank, this should eliminate only impossibilities.
+
+```{r}
+nrow(df)  
+df <- df[(df$age_f > df$experience_f)&(df$age_f > df$field_experience_f),] 
+nrow(df)  
+df <- df[df$experience_f >= df$field_experience_f,] 
+nrow(df) 
+```
+
+## (e)
+
+```{r}
+nrow(df)
+boxplot(df$salary)
+print(df[which.max(df$salary),])
+df <-df[-which.max(df$salary),]
+nrow(df)
+```
+
+This guy was an outlier that makes the rest of the data unintelligible in graphs. Also his income is probably reported in peso according to the notes but listed as USD.
+
+```{r}
+nrow(df) 
+boxplot(df$salary) 
+median(df$salary)
+millionaires <- df[df$salary>1e6,] 
+print(millionaires)
+```
+
+These people seem legit, so I'll leave these data.
+
+Now looking at the lower incomes:
+
+```{r}
+print(nrow(df[df$salary <= 100,]))
+no_money <- df[df$salary <= 100,] 
+print(no_money)
+```
+
+Looking at this data, it seems that some of them truly have no income, some of them put their income as bonuses (or do so for tax reasons) or thought that they were reporting in thousands of dollars.
+
+```{r}
+print(nrow(df[df$salary <= 10000,]))
+less_money <- df[df$salary <= 10000,]
+print(less_money)
+```
+
+Similar to no_money, except maybe here it was some people who just dropped a 0 when typing their salary, for this case, I would probably just remove all of these people as it is a very small fraction of the data set (less than 100) as I would be guessing trying to fix the data and that introduces bias
+
+```{r}
+print(nrow(df))
+df <- df[df$salary > 10000,] 
+print(nrow(df))
+```
+
+```{r}
+rm(list=ls())
+```
+
+# Problem 3: Palindromic Numbers
+
+## (a)
+
+```{r}
+isPalindromic <- function(x){
+  # Take in a positive integer, and returns a list
+  # of two elements, a boolean showing if the int is
+  # palindromic, and the reversed int
+  if (!is.numeric(x)) {
+    warning("x must be numeric, attempting to convert")
+    suppressWarnings(x <- as.numeric(x))
+    if (all(is.na(x))) {
+      stop("x must be numeric, or convertible to numeric")
+    }
+  }
+  if (x%%1 != 0) {
+    stop("x must be an integer")
+  }
+  if (x < 0) {
+    stop("x must be positive")
+  }
+  bool <- TRUE
+  x_str <- strsplit(as.character(x),split="")[[1]]
+  x_r <- rev(x_str)
+  if (length(x_str) == 1){
+    return(list(isPalindromic=bool, reversed=x))
+  }
+
+  for (i in 1:floor(length((x_str))/2)){
+    if( x_str[i]!= x_r[i]){
+      bool <-FALSE
+    }
+  }
+  x_r <- paste(x_r,collapse = "")
+  x_r <- as.numeric(x_r)
+  return(list(isPalindromic=bool, reversed=x_r))
+  }
+```
+
+Note, some of the error checking is taken directly from lecture scripts.
+
+```{r}
+isPalindromic(728827)
+isPalindromic(39951)
+```
+
+## (b)
+
+```{r}
+nextPalindrome <- function(x){
+  # Take in a positive integer, and returns a vector containing
+  # the next palindromic number greater than x
+  if (!is.numeric(x)) {
+    warning("x must be numeric, attempting to convert")
+    suppressWarnings(x <- as.numeric(x))
+    if (all(is.na(x))) {
+      stop("x must be numeric, or convertible to numeric")
+    }
+  }
+  if (x%%1 != 0) {
+    stop("x must be an integer")
+  }
+  if (x < 0) {
+    stop("x must be positive")
+  }
+  bool <- TRUE
+  while (bool){
+    x <- x+1
+    if (isPalindromic(x)[[1]] == TRUE)
+      bool <- FALSE
+  }
+
+  return(x)
+}
+```
+
+Again, some of the error checking is taken directly from lecture scripts
+
+```{r}
+nextPalindrome(7152)
+nextPalindrome(765431537)
+```
+
+## (c)
+
+```{r}
+nextPalindrome(391)
+nextPalindrome(9928)
+nextPalindrome(19272719) 
+nextPalindrome(109) 
+nextPalindrome(2)
+```
