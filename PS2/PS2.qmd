@@ -5,23 +5,132 @@ format: html
 editor: visual
 ---
 
-## Quarto
+# PS2
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+Daniel Rubio, 9/26/24
 
-## Running Code
+As an aid to my problem solving, I used UM GPT to probe for explanations when I was confused, and for suggestions of possible built in functions to use. I did not copy and paste the prompts into the AI, but rather used it to answer the questions I had as they arose.
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+# Problem 1: Dice Game
 
-```{r}
-1 + 1
-```
+## (a)/(b)
 
-You can add options to executable code like this
+### i. Using a loop
 
 ```{r}
-#| echo: false
-2 * 2
+
+#' Function that plays Dice game using a for loop
+#'
+#' @param x the number of plays
+#'
+#' @return The net number of won or lost dollars after 'x' plays
+#'
+play_dice_1 <- function(x) {
+  winnings <- 0
+  
+  for (i in 1:x) {
+    #print(winnings)
+    roll <- floor(runif(1,1,7))
+    if ((roll == 3)||(roll == 5)){
+      winnings <- winnings + 2*roll 
+    } 
+    else {
+      winnings <- winnings - 2
+    }
+  }
+  
+  return(winnings)
+
+}
+
+play_dice_1(3)
+play_dice_1(30)
+play_dice_1(300)
+play_dice_1(3000)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+### ii. Using an R vectorized function
+
+```{r}
+
+#' Function that plays Dice game using vectorized functions
+#'
+#' @param x the number of plays
+#'
+#' @return The net number of won or lost dollars after 'x' plays
+#'
+play_dice_2 <- function(x) {
+  rolls <- floor(runif(x,1,7))
+  rolls[rolls==1] <- -2
+  rolls[rolls==2] <- -2
+  rolls[rolls==3] <- 6
+  rolls[rolls==4] <- -2
+  rolls[rolls==5] <- 10
+  rolls[rolls==6] <- -2
+  
+  winnings = sum(rolls)
+  
+  return(winnings)
+}
+play_dice_2(3)
+play_dice_2(30)
+play_dice_2(300)
+play_dice_2(3000)
+```
+
+### iii. Using table()
+
+```{r}
+#' Function that plays Dice game using table()
+#'
+#' @param x the number of plays
+#'
+#' @return The net number of won or lost dollars after 'x' plays
+#'
+play_dice_3 <- function(x) {
+  rolls <- floor(runif(x,1,7))
+  results <- table(rolls)
+  outcomes <- c("1"=-2,"2"=-2,"3"=6,"4"=-2,"5"=10,"6"=-2)
+  winnings <- 0
+  
+  for (i in 1:length(results)){
+    num_name <- names(results)[i]
+    winnings <- winnings + results[num_name]*outcomes[num_name]
+  }
+  
+  return(winnings[[1]])
+}
+play_dice_3(3)
+play_dice_3(30)
+play_dice_3(300)
+play_dice_3(3000)
+
+```
+
+### iv. Using apply()
+
+```{r}
+#' Function that plays Dice game using apply()
+#'
+#' @param x the number of plays
+#'
+#' @return The net number of won or lost dollars after 'x' plays
+#'
+play_dice_4 <- function(x) {
+  rolls <- floor(runif(x,1,7))
+  
+  results <- sapply(rolls, function(x){
+    if(x==3){return(6)}
+    else if(x==5){return(10)}
+    else{return(-2)}
+  })
+  winnings <- sum(results)
+  return(winnings)
+}
+play_dice_4(3)
+play_dice_4(30)
+play_dice_4(300)
+play_dice_4(3000)
+```
+
+## (c)
