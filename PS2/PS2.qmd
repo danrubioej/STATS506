@@ -3,6 +3,7 @@ title: "PS2"
 author: "Daniel Rubio"
 format: html
 editor: visual
+---p
 ---
 
 # PS2
@@ -61,12 +62,13 @@ play_dice_1(3000)
 #'
 play_dice_2 <- function(x) {
   rolls <- floor(runif(x,1,7))
-  rolls[rolls==1] <- -2
-  rolls[rolls==2] <- -2
-  rolls[rolls==3] <- 6
-  rolls[rolls==4] <- -2
-  rolls[rolls==5] <- 10
-  rolls[rolls==6] <- -2
+  rolls[rolls == 6] <- -2 # This is a dangerous way to do it, originally this line was last and it was overriding all the 3 rolls that had previously become 6. However since this is for a timing problem I moved this to first and it works now
+  rolls[rolls == 1] <- -2
+  rolls[rolls == 2] <- -2
+  rolls[rolls == 3] <- 6
+  rolls[rolls == 4] <- -2
+  rolls[rolls == 5] <- 10
+
   
   winnings = sum(rolls)
   
@@ -134,3 +136,101 @@ play_dice_4(3000)
 ```
 
 ## (c)
+
+```{r}
+three_ans <- vector(length=4)
+three_thou_ans <- vector(length=4)
+set.seed(2024)
+three_ans[1] <- play_dice_1(3)
+set.seed(2024)
+three_ans[2] <- play_dice_2(3)
+set.seed(2024)
+three_ans[3] <- play_dice_3(3)
+set.seed(2024)
+three_ans[4] <- play_dice_4(3)
+
+set.seed(2024)
+three_thou_ans[1] <- play_dice_1(3000)
+set.seed(2024)
+three_thou_ans[2] <- play_dice_2(3000)
+set.seed(2024)
+three_thou_ans[3] <- play_dice_3(3000)
+set.seed(2024)
+three_thou_ans[4] <- play_dice_4(3000)
+
+print(three_ans)
+print(three_thou_ans)
+```
+
+## (d)
+
+```{r}
+#install.packages("microbenchmark") # ran once
+library(microbenchmark)
+few_rounds <- 1000
+low_in <- microbenchmark(
+  play_dice_1 = play_dice_1(few_rounds),
+  play_dice_2 = play_dice_2(few_rounds),
+  play_dice_3 = play_dice_3(few_rounds),
+  play_dice_4 = play_dice_4(few_rounds)
+)
+print(low_in) # units are microseconds
+```
+
+```{r}
+many_rounds <- 100000
+high_in <- microbenchmark(
+  play_dice_1 = play_dice_1(many_rounds),
+  play_dice_2 = play_dice_2(many_rounds),
+  play_dice_3 = play_dice_3(many_rounds),
+  play_dice_4 = play_dice_4(many_rounds)
+)
+print(high_in) # units are miliseconds
+```
+
+## (e)
+
+```{r}
+set.seed(2024) # for reproducability
+
+num_simulations <- 10000
+
+results <- numeric(num_simulations)
+num_plays <- floor(runif(num_simulations,1,100000))
+
+for (i in 1:num_simulations) {
+  results[i] <- play_dice_2(num_plays[i])
+}
+
+summary(results)
+
+t_test_results <- t.test(results, mu = 0)
+print(t_test_results)
+
+```
+
+The above code runs 10,000 games each with anywhere between 1 and 100,000 rolls each. If this game were fair then the mean score would be 0, which based on the 10,000 results and a t-test on the data seem to decisively not be true.
+
+```{r}
+rm(list=ls())
+```
+
+# Problem 2: Linear Regression
+
+## (a)
+
+```{r}
+df <- read.csv("cars.csv")
+names <- c("height",'length','width','drive','engine','is_hybrid','n_gears','transmission',
+           'c_mpg','fuel','h_mpg','classification','id','make','model_year','year','hp','tor') 
+colnames(df) <- names
+```
+
+## (b)
+
+```{r}
+nrow(df)
+df <- df[df$fuel== "Gasoline",]
+nrow(df)
+
+```
