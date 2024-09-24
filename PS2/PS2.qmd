@@ -234,3 +234,53 @@ df <- df[df$fuel== "Gasoline",]
 nrow(df)
 
 ```
+
+## (c)
+
+```{r}
+boxplot(df$h_mpg)
+```
+
+There is an outlier here, 2011 Chevy Silverado Hybrid appears to have a 223 highway mpg. This is clearly untrue. According to the internet the true value is 23 mpg. I will update this
+
+```{r}
+df$h_mpg[which(df$h_mpg == 223)] <- 23
+boxplot(df$h_mpg)
+```
+
+```{r}
+hist(df$h_mpg)
+```
+
+After the removal of the outlier, the data seems normal enough that it would not require any further transformation.
+
+## (d)
+
+```{r}
+df$cat_year <- as.factor(df$year)
+model <- lm(h_mpg ~ tor + hp + height + length + width + cat_year, data=df)
+summary(model)
+```
+
+## (e)
+
+```{r}
+table(df$cat_year)
+
+```
+
+## (f)
+
+```{r}
+X <- model.matrix(h_mpg ~ tor + hp + height + length + width + cat_year, data=df)
+Y <- df$h_mpg
+
+XtXinv <- solve(t(X) %*% X)
+b_hat <- XtXinv %*% t(X) %*% Y
+
+print(b_hat)
+print(as.matrix(model$coefficients))
+print(all.equal(b_hat,as.matrix(model$coefficients)))
+```
+
+The coefficients found from lm() and the linear algebra approach are indeed the same.
