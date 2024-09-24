@@ -262,12 +262,29 @@ model <- lm(h_mpg ~ tor + hp + height + length + width + cat_year, data=df)
 summary(model)
 ```
 
+The estimate coefficient for torque is about -0.052. This means that for all other variables held constant, for the increase of one unit (likely pound-feet, although the original table does not specify) of torque, the highway mpg will go down by about 0.052 miles per gallon.
+
 ## (e)
 
 ```{r}
-table(df$cat_year)
+#table(df$cat_year)
+model2 <- lm(h_mpg ~ tor*hp + height + length + width + cat_year, data=df)
+summary(model2)
+
 
 ```
+
+```{r}
+#install.packages("emmeans")
+#install.packages("ggplot2")
+library(emmeans)
+reasonable_torques <- seq(min(df$tor),max(df$tor),length.out = 100)
+reasonable_hps <- quantile(df$hp,probs=c(0.25,0.5,0.75))
+emmip(model2, ~ tor|hp, at=list(hp=reasonable_hps, tor=reasonable_torques),)
+
+```
+
+Across the middle 50% of horsepowers, the slope between torque and highway mpg becomes less steep as horsepower increases.
 
 ## (f)
 
