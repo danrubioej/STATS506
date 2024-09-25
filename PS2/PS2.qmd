@@ -3,7 +3,7 @@ title: "PS2"
 author: "Daniel Rubio"
 format: html
 editor: visual
----p
+self-contained: true
 ---
 
 # PS2
@@ -68,7 +68,6 @@ play_dice_2 <- function(x) {
   rolls[rolls == 3] <- 6
   rolls[rolls == 4] <- -2
   rolls[rolls == 5] <- 10
-
   
   winnings = sum(rolls)
   
@@ -188,6 +187,8 @@ high_in <- microbenchmark(
 print(high_in) # units are miliseconds
 ```
 
+The built in R-vectorization is the fastest for the smaller and the larger cases of the gameplay. This makes sense as from what I understand since R vectorization calls down to C. For small cases, it seems as though table() and loops take similar amount of time, in fact some of the time loops are slightly faster than table(). For larger cases the table() method becomes noticeably faster than loops. Apply is consistently the second fastest but vectorized is the clear winner.
+
 ## (e)
 
 ```{r}
@@ -209,7 +210,7 @@ print(t_test_results)
 
 ```
 
-The above code runs 10,000 games each with anywhere between 1 and 100,000 rolls each. If this game were fair then the mean score would be 0, which based on the 10,000 results and a t-test on the data seem to decisively not be true.
+The above code runs 10,000 games each with anywhere between 1 and 100,000 rolls each. If this game were fair then the mean score would be 0, which based on the 10,000 results and a t-test on the data seem to decisively not be true. Therefore based on my Monte Carlo simulation I don't think it's a fair game from the house perspective, but I would love to play it as it seems very in favor of the roller.
 
 ```{r}
 rm(list=ls())
