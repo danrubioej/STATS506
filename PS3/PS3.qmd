@@ -1,0 +1,24 @@
+---
+title: "PS3"
+author: "Daniel Rubio"
+format: html
+editor: visual
+self-contained: true
+---
+
+## PS3
+
+Daniel Rubio, 10/10/24
+
+As an aid to my problem solving, I used UM GPT to probe for explanations when I was confused, and for suggestions of possible built in functions to use. I did not copy and paste the prompts into the AI, but rather used it to answer the questions I had as they arose.
+
+# Problem 1: Vision
+
+## (a)
+
+I downloaded the two files and placed them in my directory PS3 alongside this quarto document.
+
+```{r}
+#setwd("/Users/danrubio/Desktop/STATS 506/PS3") #ran this once
+
+```
