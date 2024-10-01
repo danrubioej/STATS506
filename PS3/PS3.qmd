@@ -18,7 +18,93 @@ As an aid to my problem solving, I used UM GPT to probe for explanations when I 
 
 I downloaded the two files and placed them in my directory PS3 alongside this quarto document.
 
+UMGPT recommended haven package to open .xpt files. I knew I needed a merge command, GPT recommended dplyr but I wanted to use base R and saw there exists a merge() function.
+
 ```{r}
-#setwd("/Users/danrubio/Desktop/STATS 506/PS3") #ran this once
+#setwd("/Users/danrubio/Desktop/STATS 506/PS3") # Ran once
+#install.packages("haven") Ran once
+library(haven)
+vision <- read_xpt("VIX_D.XPT")
+demographics <- read_xpt("DEMO_D.XPT")
+df <- merge(vision, demographics, by="SEQN")
+print(nrow(df))
+```
+
+## (b)
+
+```{r}
+# VIQ220 is the column name for distance vision, 1 = yes,2= no, 9 = don't know
+# RIDAGEYR is the column name for age by year 
+# min(df$RIDAGEYR) -> 12
+# max(df$RIDAGEYR) -> 85
+
+bdf <- df[c('VIQ220',"RIDAGEYR")]
+names(bdf) <- c('dviz','age')
+
+agebins <- seq(10,90,by=10)
+# hist(bdf$age,agebins) used for debugging and sanity, no longer needed
+
+labels <- c("10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89")
+
+bdf$age_group <- cut(bdf$age, breaks = agebins, labels = labels)
+split_bdf <- split(bdf,bdf$age_group)
+
+results <- lapply(split_bdf, function(sdf){
+  dist_viz_corr <- nrow(sdf[sdf$dviz == 1,])
+  total <- nrow(sdf)
+  return(round(dist_viz_corr/total*100, digits=1))
+})
+
+bresults <- as.data.frame(results)
+names(bresults) <- labels
+
 
 ```
+
+```{r}
+# install.packages("knitr")
+# install.packages("kableExtra")
+library(knitr)
+library(kableExtra)
+
+kable(bresults, caption = "Percentage of Corrected Distance Vision by Decade") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
+```
+
+## (c)
+
+```{r}
+# VIQ220 is the column name for distance vision, 1 = yes,2= no, 9 = don't know
+# RIDAGEYR is the column name for age by year
+# RIDRETH1 is the column name for race
+# RIAGENDR is the column name for gender
+# INDFMPIR is the column name for PIR
+
+dfc <- df[c("VIQ220","RIDAGEYR", "RIDRETH1","RIAGENDR","INDFMPIR")]
+names(dfc) <- c("dviz", "age","race","gender","pir")
+
+```
+
+## (d)
+
+# Problem 2: Sakila
+
+![](images/clipboard-3241328861.png)
+
+## (a)
+
+## (b)
+
+## (c)
+
+# Problem 3: US Records
+
+## (a)
+
+## (b)
+
+## (c)
+
+## (d)
+
+## (e)
