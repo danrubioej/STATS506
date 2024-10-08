@@ -33,19 +33,20 @@ print(nrow(df))
 ## (b)
 
 ```{r}
-# VIQ220 is the column name for distance vision, 1 = yes,2= no, 9 = don't know
+# VIQ220 is the column name for distance vision, 1 = yes, 2 = no, 9 = don't know
 # RIDAGEYR is the column name for age by year 
 # min(df$RIDAGEYR) -> 12
 # max(df$RIDAGEYR) -> 85
 
 bdf <- df[c('VIQ220',"RIDAGEYR")]
 names(bdf) <- c('dviz','age')
+bdf <- bdf[bdf$dviz != 9,]
 
 agebins <- seq(10,90,by=10)
 # hist(bdf$age,agebins) used for debugging and sanity, no longer needed
 
 labels <- c("10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89")
-
+# CHECK FOR AND HANDLE NA IN AGES
 bdf$age_group <- cut(bdf$age, breaks = agebins, labels = labels)
 split_bdf <- split(bdf,bdf$age_group)
 
@@ -73,8 +74,10 @@ kable(bresults, caption = "Percentage of Corrected Distance Vision by Decade") %
 
 ## (c)
 
+For the previous problem, I ignored that there was a "Don't know" option in the distance vision column, but for this one to get the logistic binomial regression to work, I eliminated the two 9 answers. Also had to convert all the 2 answers to 0s.
+
 ```{r}
-# VIQ220 is the column name for distance vision, 1 = yes,2= no, 9 = don't know
+# VIQ220 is the column name for distance vision, 1 = yes, 2 = no, 9 = don't know
 # RIDAGEYR is the column name for age by year
 # RIDRETH1 is the column name for race
 # RIAGENDR is the column name for gender
@@ -82,6 +85,25 @@ kable(bresults, caption = "Percentage of Corrected Distance Vision by Decade") %
 
 dfc <- df[c("VIQ220","RIDAGEYR", "RIDRETH1","RIAGENDR","INDFMPIR")]
 names(dfc) <- c("dviz", "age","race","gender","pir")
+
+# table(dfc$dviz)    1:2765    2:3780    9:2
+dfc <- dfc[dfc$dviz != 9,]
+dfc$dviz[dfc$dviz == 2] <- 0
+# table(dfc$dviz)   0:3780, 1:2765
+
+# Converting appropriate categories to factors
+dfc$racef <- as.factor(dfc$race)
+levels(dfc$racef) <- c("mexican_american","other_hispanic","nh_white","nh_black","other_multi")
+dfc$genderf <- as.factor(dfc$gender)
+levels(dfc$genderf) <- c("male","female")
+
+reg1 <- glm(dviz ~ age, data=dfc, family=binomial)
+reg2 <- glm(dviz ~ age + racef + genderf, data=dfc, family=binomial)
+reg3 <- glm(dviz ~ age + racef + genderf + pir, data=dfc, family=binomial)
+ro1 <- summary(reg1)
+ro2 <- summary(reg2)
+ro3 <- summary(reg3)
+
 
 ```
 
