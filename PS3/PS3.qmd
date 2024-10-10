@@ -22,10 +22,12 @@ UMGPT recommended haven package to open .xpt files. I knew I needed a merge comm
 
 ```{r}
 #setwd("/Users/danrubio/Desktop/STATS 506/PS3") # Ran once
-#install.packages("haven") Ran once
-library(haven)
+#install.packages("haven") # Ran once
+library(haven) 
+# Read in files
 vision <- read_xpt("VIX_D.XPT")
 demographics <- read_xpt("DEMO_D.XPT")
+# Create master dataframe by merging on SEQN number
 df <- merge(vision, demographics, by="SEQN")
 print(nrow(df))
 ```
@@ -38,15 +40,22 @@ print(nrow(df))
 # min(df$RIDAGEYR) -> 12
 # max(df$RIDAGEYR) -> 85
 
+# Create a dataframe for b, give it workable names
 bdf <- df[c('VIQ220',"RIDAGEYR")]
 names(bdf) <- c('dviz','age')
-bdf <- bdf[bdf$dviz != 9,]
 
+# Remove "I don't know" answers and NA answers for age and dviz
+# nrow(bdf) # [1] 6980
+bdf <- bdf[bdf$dviz != 9,]
+bdf <- bdf[complete.cases(bdf),] #found on stackexchange
+# nrow(bdf) # [1] 6545
+
+# Create a vector to split up ages and labels
 agebins <- seq(10,90,by=10)
+labels <- c("10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89")
+
 # hist(bdf$age,agebins) used for debugging and sanity, no longer needed
 
-labels <- c("10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89")
-# CHECK FOR AND HANDLE NA IN AGES
 bdf$age_group <- cut(bdf$age, breaks = agebins, labels = labels)
 split_bdf <- split(bdf,bdf$age_group)
 
@@ -59,10 +68,6 @@ results <- lapply(split_bdf, function(sdf){
 bresults <- as.data.frame(results)
 names(bresults) <- labels
 
-
-```
-
-```{r}
 # install.packages("knitr")
 # install.packages("kableExtra")
 library(knitr)
@@ -74,59 +79,269 @@ kable(bresults, caption = "Percentage of Corrected Distance Vision by Decade") %
 
 ## (c)
 
-For the previous problem, I ignored that there was a "Don't know" option in the distance vision column, but for this one to get the logistic binomial regression to work, I eliminated the two 9 answers. Also had to convert all the 2 answers to 0s.
-
 ```{r}
 # VIQ220 is the column name for distance vision, 1 = yes, 2 = no, 9 = don't know
 # RIDAGEYR is the column name for age by year
 # RIDRETH1 is the column name for race
 # RIAGENDR is the column name for gender
 # INDFMPIR is the column name for PIR
+# install.packages("fmsb") #ran once, for R^2
+# install.packages("dplyr") #ran once
+library(fmsb)
+library(dplyr)
 
-dfc <- df[c("VIQ220","RIDAGEYR", "RIDRETH1","RIAGENDR","INDFMPIR")]
-names(dfc) <- c("dviz", "age","race","gender","pir")
+# Create a df for c with more friendly names
+cdf <- df[c("VIQ220","RIDAGEYR", "RIDRETH1","RIAGENDR","INDFMPIR")]
+names(cdf) <- c("dviz", "age","race","gender","pir")
 
-# table(dfc$dviz)    1:2765    2:3780    9:2
-dfc <- dfc[dfc$dviz != 9,]
-dfc$dviz[dfc$dviz == 2] <- 0
-# table(dfc$dviz)   0:3780, 1:2765
+# Remove "I don't know" answers and NAs, changing "no" number from 2 to 0 to match glm syntax
+# table(cdf$dviz)    1:2765    2:3780    9:2
+cdf <- cdf[cdf$dviz != 9,]
+cdf <- cdf[complete.cases(cdf),] #found on stackexchange
+cdf$dviz[cdf$dviz == 2] <- 0
+# table(cdf$dviz) #  0:3592    1:2655 
 
 # Converting appropriate categories to factors
-dfc$racef <- as.factor(dfc$race)
-levels(dfc$racef) <- c("mexican_american","other_hispanic","nh_white","nh_black","other_multi")
-dfc$genderf <- as.factor(dfc$gender)
-levels(dfc$genderf) <- c("male","female")
+cdf$racef <- as.factor(cdf$race)
+levels(cdf$racef) <- c("mexican_american","other_hispanic","nh_white","nh_black","other_multi")
+cdf$genderf <- as.factor(cdf$gender)
+levels(cdf$genderf) <- c("male","female")
 
-reg1 <- glm(dviz ~ age, data=dfc, family=binomial)
-reg2 <- glm(dviz ~ age + racef + genderf, data=dfc, family=binomial)
-reg3 <- glm(dviz ~ age + racef + genderf + pir, data=dfc, family=binomial)
-ro1 <- summary(reg1)
-ro2 <- summary(reg2)
-ro3 <- summary(reg3)
+# Create requested models
+reg1 <- glm(dviz ~ age, data=cdf, family=binomial)
+reg2 <- glm(dviz ~ age + racef + genderf, data=cdf, family=binomial)
+reg3 <- glm(dviz ~ age + racef + genderf + pir, data=cdf, family=binomial)
 
+#' Get Model Information
+#'
+#' @param model
+#'
+#' @return model_info
+#' retrieves model information
+get_model_info <- function(model) {
+  odds_ratios <- round(exp(coef(model)),digits = 2)
+  sample_size <- nobs(model)
+  R2  <- round(NagelkerkeR2(model)$R2, digits = 2)
+  AIC <- round(AIC(model),digits = 2)
+  model_info <- c(sample_size,R2,AIC,odds_ratios)
+  model_info <- t(data.frame(model_info))
+  model_info <- model_info[,]
+  row.names(model_info)<- NULL
+  
+  return(model_info)
+}
+# Extract data from each model and name:
+
+model1_info <- get_model_info(reg1)
+names(model1_info) <- c("Sample size", "R^2", "AIC", "Intercept", "Age")
+
+model2_info <- get_model_info(reg2)
+names(model2_info) <- c("Sample size", "R^2", "AIC", "Intercept", "Age","Other Hispanic","Non-Hispanic White","Non-Hispanic Black","Multiracial","Female")
+
+model3_info <- get_model_info(reg3)
+names(model3_info) <- c("Sample size", "R^2", "AIC", "Intercept", "Age","Other Hispanic","Non-Hispanic White","Non-Hispanic Black","Multiracial","Female", "Poverty Income Ratio")
+
+# install.packages("knitr")
+# install.packages("kableExtra")
+library(knitr)
+library(kableExtra)
+
+# Print tables
+kable(t(model1_info), caption = "Model 1") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
+
+kable(t(model2_info), caption = "Model 2") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
+
+kable(t(model3_info), caption = "Model 3") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
 
 ```
 
 ## (d)
 
+```{r}
+#TODO
+```
+
+```{r}
+rm(list=ls())
+```
+
 # Problem 2: Sakila
 
 ![](images/clipboard-3241328861.png)
 
+```{r}
+#install.packages("DBI") # Ran once
+#install.packages("RSQLite") # Ran once
+library(DBI)
+library(RSQLite)
+
+# loading in table connection
+sakila <- dbConnect(SQLite(), "sakila_master.db")
+dbListTables(sakila)
+
+#' EZ Query
+#'
+#' @param query 
+#'
+#' @return results of SQL query
+#' Function copied from class to make SQL queries easier and shorter
+gg <- function(query) {
+  dbGetQuery(sakila, query)
+}
+```
+
 ## (a)
+
+This query is hard to test since there seems to only be one year in the dataset, but if there were several then this would retrieve the oldest one based on release year.
+
+```{r}
+gg("SELECT title FROM film
+    ORDER BY release_year ASC
+    LIMIT 1")
+```
 
 ## (b)
 
+```{r}
+# SQL into R df version
+# Get dfs
+film_category <- gg("SELECT * FROM film_category")
+category      <- gg("SELECT * FROM category")
+
+count <- table(film_category$category_id) # Tally all genres
+min_category <- which.min(count) # Find min index
+min_count <- min(count) # Find number of min
+
+genre <- category$name[category$category_id == min_category] # find genre name
+
+# print answer
+print(paste("The least popular film genre is ", genre, " with only ", min_count, " films"))
+```
+
+```{r}
+# SQL Query version
+answer <- gg("
+  SELECT category.name AS genre, COUNT(film_category.category_id) AS num_films
+  FROM category
+  JOIN film_category ON category.category_id = film_category.category_id
+  GROUP BY film_category.category_id
+  ORDER BY num_films
+  LIMIT 1
+")
+
+# print answer
+print(paste("The least popular film genre is ", answer$genre, " with only ", answer$num_films, " films"))
+```
+
 ## (c)
+
+```{r}
+# SQL into R df version
+# Get dfs
+customers <- gg("SELECT * FROM customer")
+address   <- gg("SELECT * FROM address")
+city      <- gg("SELECT * FROM city")
+country   <- gg("SELECT * FROM country")
+
+# Combine all of them into one
+merged_df <- merge(customers, address, by = "address_id")
+merged_df <- merge(merged_df, city, by = "city_id" )
+merged_df <- merge(merged_df, country, by = "country_id")
+# Count all the coutnry appearances, seperate the ones equal to 13 and print
+country_count <- table(merged_df$country)
+country_count <- country_count[country_count == 13]
+print(country_count)
+
+```
+
+```{r}
+# SQL Query version
+answer <- gg("
+  SELECT country.country, COUNT(country.country) AS customer_count
+  FROM customer
+    JOIN address ON customer.address_id = address.address_id
+    JOIN city ON address.city_id = city.city_id
+    JOIN country ON city.country_id = country.country_id
+    GROUP BY country.country
+    HAVING customer_count == 13
+")
+
+print(answer)
+```
+
+```{r}
+rm(list=ls())
+```
 
 # Problem 3: US Records
 
+```{r}
+# Reading in dataframe
+df <- read.csv("us-500.csv")
+```
+
 ## (a)
+
+```{r}
+# Find the number of row entries ending in ".com" and storing in a logical string
+dotcoms <- grepl(".com", df$email)
+# The TRUE values will act as 1 when treated as a number, so using that to do math to find the percentage of emails with ".com":
+percent <- sum(dotcoms)/length(dotcoms)*100
+paste(percent, "% of the emails in the sample data have '.com' as the TLD.")
+```
 
 ## (b)
 
+```{r}
+# Remove one @ and one . for each string in the email column and store it
+special_chars <- sub("@",'', df$email)
+special_chars <- sub('\\.','', special_chars)
+# Remove all letters and numbers
+special_chars <- gsub('[a-z,A-Z,0-9]','',special_chars)
+
+# Create bool vector to count all non-empty strings
+special_chars <- special_chars == ''
+
+# The TRUE values will act as 1 when treated as a number, so using that to do math to find the percentage of emails with special chars:
+percent <- sum(special_chars)/length(special_chars)*100
+paste(percent, "% of the emails in the sample data have special characters besides the required ones.")
+```
+
 ## (c)
+
+```{r}
+# Get all phones in one vector list
+phones <- append(as.vector(df$phone1),as.vector(df$phone2))
+# Remove the numbers
+areas <- sub("-[0-9]{3}-[0-9]{4}$",'', as.list(phones))
+# Count up the appearances of each
+area_counts <- table(areas)
+# Sort the counts in descending order
+area_counts <- sort(area_counts, decreasing = TRUE)
+# Report the top 5 most common
+print(area_counts[1:5], max.levels=5)
+```
 
 ## (d)
 
+```{r}
+# Extract the addresses
+addresses <- df$address
+# Get apartment numbers (This probably would have been a better way to do C, but eh)
+matches <- as.numeric(regmatches(addresses, regexpr("[0-9]+$",addresses)))
+hist(log(matches), main = "Log frequency of apartment numbers", xlab="Log Scale")
+```
+
 ## (e)
+
+```{r}
+# Extract the first digits
+first_digits <- as.numeric(regmatches(matches, regexpr("^[0-9]",matches)))
+# plot the first digits
+hist(first_digits,breaks = c(1:9))
+```
+
+While 1 does have a frequency of about 30%, the subsequent first digits do not have the corresponding percentages (\~18%, \~12%, \~10%...) rather they hold pretty steady between 12-15%. This data would likely be classified as falsified if Benford's law were the only criteria and there were no other factors. As due to the log histogram in the previous problem this data spans several orders of magnitude, this is a pretty strong indictment of the falseness of the data, as the more orders of magnitude spread by the numbers the more accurate Benford's law is according to wikipedia.
