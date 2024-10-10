@@ -158,11 +158,36 @@ kable(t(model3_info), caption = "Model 3") %>%
 
 ```
 
+I know this is three separate tables and not one, but I could not find out a good way to put them all into one.
+
 ## (d)
 
 ```{r}
-#TODO
+summary(reg3)
+#                      Estimate Std. Error z value Pr(>|z|)   
+# genderffemale        0.516271   0.054305   9.507  < 2e-16 ***
+odds_ratio <- exp(coef(reg3)["genderffemale"])
+print(odds_ratio)
 ```
+
+The P-Value for female gender is less than 0.05, meaning that there IS a significant statistical difference between the probability of having corrected distance vision if you are a female compared to if you are a male. In fact it is 1.68 times as likely to have corrected vision if you are a female compared to if you are a male.
+
+```{r}
+# Extract the data of male/female corrected distance vision
+table_result <- table(cdf$dviz, cdf$genderf)
+print(table_result)
+
+proportion_males = 1134/(1134+1919)
+proportion_females = 1673/(1673+1521)
+
+paste("The proportion of males and females who have corrected distance vision are ", proportion_males, " and ", proportion_females," respectively. These ratios are very different so yes I would say that the proportions of wearers are different, however to prove it I will perform a Chi-squared test:")
+
+# Chi-Square Test of Independence
+chi_square_test <- chisq.test(table_result)
+print(chi_square_test)
+```
+
+The results of the Chi-squared test indicate that the p-value is less than 0.05, rejecting the null hypothesis that the proportions are not different.
 
 ```{r}
 rm(list=ls())
