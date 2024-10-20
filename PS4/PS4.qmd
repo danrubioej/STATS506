@@ -6,23 +6,102 @@ editor: visual
 self-contained: true
 ---
 
-## Quarto
+## PS4
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+Daniel Rubio, 10/31/24
 
-## Running Code
+As an aid to my problem solving, I used UM GPT to probe for explanations when I was confused, and for suggestions of possible built in functions to use. I did not copy and paste the prompts into the AI, but rather used it to answer the questions I had as they arose.
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
-```{r}
-1 + 1
-```
-
-You can add options to executable code like this
+# Problem 1: Tidyverse
 
 ```{r}
-#| echo: false
-2 * 2
+# install.packages("nycflights13") Ran once
+# install.packages("tidyverse") Ran once
+library(nycflights13)
+library(tidyverse)
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+## (a)
+
+```{r}
+departure_delays <- left_join(flights, airports, by = c("origin"="faa")) %>% # This line ensures the names show up instead of faa codes
+  select(dep_delay, name) %>% # only getting the needed info
+  group_by(name) %>% # data aggregated by airport name
+  filter(n() > 10) %>% # only show results with at least 10 flights
+  summarize(med_delays = median(dep_delay, na.rm=TRUE),
+            mean_delays = mean(dep_delay, na.rm=TRUE)
+            ) %>% # get the means and medians
+  arrange(desc(mean_delays)) %>% # ensures the table displays in order of descending mean delay
+  ungroup() %>% # needed
+  print(n=Inf) # will print all rows
+
+```
+
+```{r}
+arrival_delays <- left_join(flights, airports, by = c("dest"="faa")) %>% # This line ensures the names show up instead of faa codes
+  select(arr_delay, name) %>% # only getting the needed info
+  group_by(name) %>% # data aggregated by airport name
+  filter(n() > 10) %>% # only show results with at least 10 flights
+  summarize(med_delays = median(arr_delay, na.rm=TRUE),
+            mean_delays = mean(arr_delay, na.rm=TRUE)
+            ) %>% # get the means and medians
+  arrange(desc(mean_delays)) %>% # ensures the table displays in order of descending mean delay
+  ungroup() %>% # needed
+  print(n=Inf) # will print all rows
+```
+
+## (b)
+
+```{r}
+fastest_model <- left_join(flights, planes, by = c("tailnum" = "tailnum")) %>% # connects the table with all the flights with the one describing what kind of plane was used
+  select(model, air_time, distance) %>% # getting needed info
+  mutate(air_speed_mph = distance/(air_time/60)) %>% # calculating flight speed in MPH
+  group_by(model) %>% 
+  summarise(avg_speed_mph = mean(air_speed_mph),
+            number_flights = n()) %>% # calculating the average speed and counting how many flights
+  arrange(desc(avg_speed_mph)) %>% # ensuring descending order on average speed
+  ungroup() %>% 
+  head(1) %>% # selecting only the first (fastest) result
+  print() # printing the fastest row with speed, model, and number of flights taken
+
+```
+
+# Problem 2: get_Temp()
+
+```{r}
+
+#' Get Temperature
+#'
+#' @param month a numeric or string that indicates the month
+#' @param year a number indicating year
+#' @param data dataset from where to find the temperature values
+#' @param celsius a boolean determining if the temperatures are celsius or farenheit, default is farenheit
+#' @param average_fn the function that tells how to process the data, default is mean
+#'
+#' @return temp processed temperature
+#' @export
+#'
+#' @examples
+get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean){
+  
+  return(temp)
+}
+
+```
+
+Testing the function:
+
+```{r}
+nnmaps <- read.csv("chicago-nmmaps.csv")
+get_temp("Apr", 1999, data = nnmaps)
+get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
+get_temp(10, 1998, data = nnmaps, average_fn = median)
+get_temp(13, 1998, data = nnmaps)
+get_temp(2, 2005, data = nnmaps)
+get_temp("November", 1999, data =nnmaps, celsius = TRUE,
+         average_fn = function(x) {
+           x %>% sort -> x
+           x[2:(length(x) - 1)] %>% mean %>% return
+         })
+```
