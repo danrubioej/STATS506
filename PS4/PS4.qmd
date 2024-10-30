@@ -84,6 +84,17 @@ fastest_model <- left_join(flights, planes, by = c("tailnum" = "tailnum")) %>% #
 #'
 #' @examples
 get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean){
+  # Process Month
+  if(is.numeric(month)){
+    
+  }
+  else if (is.character(month){
+    m_vec <-  c("ja","f","mar","ap", "may","jun",
+                "jul","au", "s", "o","n", "d")
+    
+  }
+  else{stop("Month must be numeric or character ")}
+
   
   return(temp)
 }
