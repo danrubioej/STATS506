@@ -58,13 +58,17 @@ fastest_model <- left_join(flights, planes, by = c("tailnum" = "tailnum")) %>% #
   select(model, air_time, distance) %>% # getting needed info
   mutate(air_speed_mph = distance/(air_time/60)) %>% # calculating flight speed in MPH
   group_by(model) %>% 
-  summarise(avg_speed_mph = mean(air_speed_mph),
+  summarise(avg_speed_mph = mean(air_speed_mph, na.rm=TRUE),
             number_flights = n()) %>% # calculating the average speed and counting how many flights
   arrange(desc(avg_speed_mph)) %>% # ensuring descending order on average speed
   ungroup() %>% 
   head(1) %>% # selecting only the first (fastest) result
   print() # printing the fastest row with speed, model, and number of flights taken
 
+```
+
+```{r}
+rm(list=ls())
 ```
 
 # Problem 2: get_Temp()
@@ -79,24 +83,48 @@ fastest_model <- left_join(flights, planes, by = c("tailnum" = "tailnum")) %>% #
 #' @param celsius a boolean determining if the temperatures are celsius or farenheit, default is farenheit
 #' @param average_fn the function that tells how to process the data, default is mean
 #'
-#' @return temp processed temperature
+#' @return Processed temperature value
 #' @export
 #'
 #' @examples
 get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean){
-  # Process Month
+  # Process month input
+  month_vector <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
   if(is.numeric(month)){
-    
+    if(month < 1 | month > 12){stop("month must be in range 1-12")}
+    month <- month_vector[month]
   }
-  else if (is.character(month){
-    m_vec <-  c("ja","f","mar","ap", "may","jun",
-                "jul","au", "s", "o","n", "d")
-    
+  else if (is.character(month)){
+    month <- month %>%substr(start=1,stop=3)
+    if(!any(month %in% month_vector)){ stop("month string does not contain valid month")}
   }
-  else{stop("Month must be numeric or character ")}
-
+  else{stop("month must be numeric or character ")}
   
-  return(temp)
+  # Process year input
+  if(!is.numeric(year)){stop("year must be a number")}
+  # Ensure year is in range
+  years <- data %>% distinct(year)
+  if(!any(year %in% years$year)){stop("year string does not contain a valid year")}
+
+  # Process data input
+  if(!is.data.frame(data)){stop("data must be a data frame")}
+  # Process celsius input
+  if(!is.logical(celsius)){stop("average_fn must be a function")}
+  # Process average_fn input
+  if(!is.function(average_fn)){stop("average_fn must be a function")}
+  
+  temp <- data %>% 
+    filter(month == !!month, year == !!year) %>% 
+    select(temp) %>% #print
+    summarize(avg_temp = average_fn(temp)) %>% 
+    pull(avg_temp)
+    
+  # Convert to Celsius if celsius is true
+    if (celsius){
+      temp <- (temp-32)/1.8
+    }
+  
+  temp %>% round(digits = 3) %>% return
 }
 
 ```
@@ -104,15 +132,86 @@ get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean){
 Testing the function:
 
 ```{r}
+# These should pass
 nnmaps <- read.csv("chicago-nmmaps.csv")
 get_temp("Apr", 1999, data = nnmaps)
+get_temp("Jul", 1999, data = nnmaps)
 get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
 get_temp(10, 1998, data = nnmaps, average_fn = median)
-get_temp(13, 1998, data = nnmaps)
-get_temp(2, 2005, data = nnmaps)
-get_temp("November", 1999, data =nnmaps, celsius = TRUE,
+get_temp("November", 1999, data = nnmaps, celsius = TRUE,
          average_fn = function(x) {
            x %>% sort -> x
            x[2:(length(x) - 1)] %>% mean %>% return
          })
+
+# added july test case becasue I was missing the "!!" in the filter statement, so it was always giving the same data
 ```
+
+The following should (and do) fail:
+
+```{r}
+#get_temp(13, 1998, data = nnmaps)
+```
+
+```{r}
+#get_temp(2, 2005, data = nnmaps)
+```
+
+```{r}
+rm(list=ls())
+```
+
+# Problem 3: Visualization
+
+Downloaded df_for_ml_improved_new_market and placed it in this directory.
+
+```{r}
+data <- read.csv("df_for_ml_improved_new_market.csv")
+```
+
+## (a)
+
+```{r}
+ggplot(data, aes(x=year,group=year, y=price_usd ) ) +
+       geom_boxplot() +
+  ggtitle("Artwork USD Price Statistics 1997-2012")+
+  scale_y_log10(name = "Price (USD)")+
+  scale_x_continuous(breaks=seq(1997,2012, by=1), name="Year")
+```
+
+As we can observe from the box plot above, the price of art does drift over time. From 1997 to 2001 there was a slow drift downward, but from 2001-2008 the median increased before seeming to plateau. The spread of art prices has also increased dramatically throughout the years. Pre-2003 there was not even an outlier that was worth over 1e5, but starting in 2004 the whiskers of each plot goes well into the 1e5 range. The floor of art prices always seems to be somewhere in the hundreds, so the variation comes more from the high value end.
+
+## (b)
+
+```{r}
+genres = c("Photography","Print","Sculpture","Painting","Others")
+
+data_long <- data %>% 
+  pivot_longer(cols=starts_with("Genre___"), names_to = "Genre",values_to = "value") %>%
+  filter(value==1) %>% 
+  select(-value) %>% 
+  mutate(
+    Genre = fct_recode(
+      Genre,
+      "Others" = "Genre___Others",
+      "Photography" = "Genre___Photography",
+      "Print" = "Genre___Print",
+      "Sculpture" = "Genre___Sculpture",
+      "Painting" = "Genre___Painting"
+    )
+  )
+
+ggplot(data_long, aes(x=year,group=year, y=price_usd ) ) +
+       geom_boxplot() +
+  ggtitle("Artwork price Statistics by Genre 1997-2012")+
+  scale_y_log10(name = "Price (USD)") +
+  scale_x_continuous(breaks=seq(1997,2012, by=4), name="Year")+
+  facet_wrap("Genre")
+
+```
+
+The above plots shows the distribution of sales over the years across genres. There does appear to be fluctuations. In particular, print genre only began to be considered in the year 2000. Painting and Others are very similar but not quite the same.
+
+## (c)
+
+The genre of each kind of art seems to slightly affect the change of price of the art. The Painting and Others genres seem to have a very consistent floor and medians, with more outliers increasing in price from the late 90s to the mid 2000s. As I mentioned before the spread of the price of photography increases the most dramatically, with few outliers. The median price of photography also increases dramatically. Print has a sporadic relatively tight spread from year to year. Sculptures and Photography have the largest quartile ranges compared to the other art forms. All of the art forms seem to have similar dip and high years - for example all of the art forms dip in 2001 and are high in 2007- but Others and Paintings are the most stable, followed by photography and Sculpture being more reactive and Print being most variable year to year.
