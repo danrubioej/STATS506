@@ -1,0 +1,486 @@
+---
+title: "PS5"
+author: "Daniel Rubio"
+format: html
+editor: visual
+self-contained: true
+---
+
+## PS5
+
+Daniel Rubio, 11/21/24
+
+As an aid to my problem solving, I used UM GPT to probe for explanations when I was confused, and for suggestions of possible built in functions to use. I did not copy and paste the prompts into the AI, but rather used it to answer the questions I had as they arose.
+
+# Problem 1: Object Oriented Programming
+
+## (a) Defining "rational" class
+
+Defining requested Rcpp functions:
+
+```{r}
+library(Rcpp)
+
+#' Function that calls down to cpp and finds GCD
+#'
+#' @param A int
+#' @param B int
+#'
+#' @return Greatest common denominator
+#'
+cGCD <- function(A,B) {
+  ans <- evalCpp(paste0("std::gcd(",A, ", ", B, ")"))
+  return(ans)
+}
+#' Function that calls down to cpp and finds LCM
+#'
+#' @param A int
+#' @param B int
+#'
+#' @return Greatest common multiple
+#'
+cLCM <- function(A,B) {
+  ans <- evalCpp(paste0("std::lcm(",A, ", ", B, ")"))
+  return(ans)
+}
+```
+
+Defining class:
+
+```{r}
+rational <- setClass("rational",
+         slots = c(data = "numeric"))
+
+setValidity('rational',function(object){
+  # object must be in form c(numerator, denominator)
+  if(length(object@data) != 2){
+    stop("Input must be vector of length two")
+  }
+  if(object@data[1]!= round(object@data[1]) | object@data[2]!= round(object@data[2] )){
+    stop("Numerator and denominator must be integers")
+  }
+  if(object@data[2] == 0){
+    stop("Denominator must be non-zero")
+  }
+  return(TRUE)
+})
+
+```
+
+Methods:
+
+```{r}
+
+setMethod("show", "rational",
+  function(object) {
+    cat(object@data[1], "/", object@data[2])
+    cat("\n")
+    return(invisible(object))
+  }
+)
+
+setGeneric("simplify",
+           function(object) {
+             standardGeneric("simplify")})
+
+setMethod("simplify", "rational",
+  function(object) {
+    num <- object@data[1]
+    den <- object@data[2]
+    com_denom <- cGCD(num,den)
+    new_num <- num / com_denom
+    new_den <- den / com_denom
+    simplified <- rational(data = c(new_num,new_den))
+    return(simplified)
+  }
+)
+setGeneric("quotient",
+           function(object,...) {
+             standardGeneric("quotient")})
+
+setMethod("quotient", "rational",
+  function(object, digits = 8) {
+    num <- object@data[1]
+    den <- object@data[2]
+    result <- num/den
+    if(round(result,digits) == round(result,digits+1)){
+      rest = ""
+    }
+    else{rest="..."}
+    cat(round(result, digits),rest, sep="")
+    cat("\n")
+    return(invisible(result))
+  }
+)
+```
+
+Operations:
+
+```{r}
+##' @title `rational` addition
+##'
+##'
+##' @param e1 A `rational`
+##' @param e2 A `rational`
+##' @return A `rational` that is the sum of e1 and e2
+setMethod("+", signature(e1 = "rational", e2 = "rational"),
+            function(e1, e2) {
+            n1 <- e1@data[1]
+            d1 <- e1@data[2]
+            n2 <- e2@data[1]
+            d2 <- e2@data[2]
+            N = n1*d2+n2*d1
+            D = d1*d2
+            return(simplify(rational(data=c(N,D))))
+            }
+          )
+##' @title `rational` subtraction
+##'
+##'
+##' @param e1 A `rational`
+##' @param e2 A `rational`
+##' @return A `rational` that is the difference of e1 and e2
+setMethod("-", signature(e1 = "rational", e2 = "rational"),
+            function(e1, e2) {
+            n1 <- e1@data[1]
+            d1 <- e1@data[2]
+            n2 <- e2@data[1]
+            d2 <- e2@data[2]
+            N = n1*d2-n2*d1
+            D = d1*d2
+            return(simplify(rational(data=c(N,D))))
+            }
+          )
+##' @title `rational` multiplication
+##'
+##'
+##' @param e1 A `rational`
+##' @param e2 A `rational`
+##' @return A `rational` that is the multiplication of e1 and e2
+setMethod("*", signature(e1 = "rational", e2 = "rational"),
+            function(e1, e2) {
+            n1 <- e1@data[1]
+            d1 <- e1@data[2]
+            n2 <- e2@data[1]
+            d2 <- e2@data[2]
+            N = n1*n2
+            D = d1*d2
+            return(simplify(rational(data=c(N,D))))
+            }
+          )
+##' @title `rational` division
+##'
+##'
+##' @param e1 A `rational`
+##' @param e2 A `rational`
+##' @return A `rational` that is e1 divided by e2
+setMethod("/", signature(e1 = "rational", e2 = "rational"),
+            function(e1, e2) {
+            n1 <- e1@data[1]
+            d1 <- e1@data[2]
+            n2 <- e2@data[1]
+            d2 <- e2@data[2]
+            N = n1*d2
+            D = d1*n2
+            return(simplify(rational(data=c(N,D))))
+            }
+          )
+```
+
+## (b) Using "rational" class
+
+```{r}
+r1 = rational(data = c(24,6))
+r2 = rational(data = c(7,230))
+r3 = rational(data = c(0,4))
+```
+
+```{r, error=TRUE}
+r1
+r3
+r1 + r2
+r1 - r2
+r1 * r2
+r1 / r2
+r1 + r3
+r1 * r3
+r2 / r3
+quotient(r1)
+quotient(r2)
+quotient(r2, digits = 3)
+quotient(r2, digits = 3.14)
+quotient(r2, digits = "avocado")
+q2 <- quotient(r2, digits = 3)
+q2
+quotient(r3)
+simplify(r1)
+simplify(r2)
+simplify(r3)
+```
+
+## (c) Not creating impossible rationals, other bad inputs
+
+```{r, error=TRUE}
+r4 = rational(data = c(1,0))
+r5 = rational(data = c(1,2,3))
+r6 = rational(data = c(1))
+r7 = rational(data = c("numerator","denominator"))
+r8 = rational(data = c(1.2,4))
+r8 = rational(data = c(1,4.3))
+r9 = rational(data = 2/9)
+```
+
+```{r}
+rm(list=ls())
+```
+
+# Problem 2: plotly
+
+## (a)
+
+Load in data
+
+```{r}
+data <- read.csv("df_for_ml_improved_new_market.csv")
+# install.packages("tidyverse") ran once
+# install.packages("plotly") ran once
+library(tidyverse)
+library(plotly)
+```
+
+Regenerate plot
+
+```{r}
+genres = c("Photography","Print","Sculpture","Painting","Others")
+
+data_long <- data %>% 
+  pivot_longer(cols=starts_with("Genre___"), names_to = "Genre",values_to = "value") %>%
+  filter(value==1) %>% 
+  select(-value) %>% 
+  mutate(
+    Genre = fct_recode(
+      Genre,
+      "Others" = "Genre___Others",
+      "Photography" = "Genre___Photography",
+      "Print" = "Genre___Print",
+      "Sculpture" = "Genre___Sculpture",
+      "Painting" = "Genre___Painting"
+    )
+  )
+
+g <- ggplot(data_long, aes(x=year,group=year, y=price_usd ) ) +
+       geom_boxplot() +
+  ggtitle("Artwork price Statistics by Genre 1997-2012")+
+  scale_y_log10(name = "Price (USD)") +
+  scale_x_continuous(breaks=seq(1997,2012, by=4), name="Year")+
+  facet_wrap("Genre")
+g
+```
+
+## (b)
+
+Creating Interactive plot with plotly
+
+```{r}
+p <- plot_ly(data=data_long) |>
+  add_boxplot(x = ~ year, y = ~ price_usd) |>
+  add_boxplot(data=data_long[data_long$Genre=="Photography",],x = ~ year, y = ~ price_usd,visible=FALSE) |>
+  add_boxplot(data=data_long[data_long$Genre=="Print",],x = ~ year, y = ~ price_usd,visible=FALSE) |>
+  add_boxplot(data=data_long[data_long$Genre=="Sculpture",],x = ~ year, y = ~ price_usd,visible=FALSE) |>
+  add_boxplot(data=data_long[data_long$Genre=="Painting",],x = ~ year, y = ~ price_usd,visible=FALSE) |>
+  add_boxplot(data=data_long[data_long$Genre=="Others",],x = ~ year, y = ~ price_usd,visible=FALSE) |>
+  layout(updatemenus = list(
+  list(y = 1,
+    buttons = list(
+      list(method = "update",
+           args = list(list(visible =  list(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE)),
+                       list(yaxis = list(title = "Price (USD)",type="log"))),
+           label = "Over Time, Overall"),
+      
+      list(method = "update",
+           args = list(list(visible =  list(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE)),
+                       list(yaxis = list(title = "Price (USD)",type="log"))),
+           label = "Photography"),
+      list(method = "update",
+           args = list(list(visible =  list(FALSE, FALSE, TRUE, FALSE, FALSE, FALSE)),
+                       list(yaxis = list(title = "Price (USD)",type="log"))),
+           label = "Print"),
+      list(method = "update",
+           args = list(list(visible =  list(FALSE, FALSE, FALSE, TRUE, FALSE, FALSE)),
+                       list(yaxis = list(title = "Price (USD)",type="log"))),
+           label = "Sculpture"),
+      list(method = "update",
+           args = list(list(visible =  list(FALSE, FALSE, FALSE, FALSE, TRUE, FALSE)),
+                       list(yaxis = list(title = "Price (USD)",type="log"))),
+           label = "Painting"),
+
+      list(method = "update",
+           args = list(list(visible =  list(FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)),
+                       list(yaxis = list(title = "Price (USD)",type="log"))),
+           label = "Others"))
+  )
+)) |>
+  layout(yaxis = list(title = "Price (USD)",type = "log"), 
+         xaxis = list(title = "Year"),
+         title = "Artwork price Statistics by Genre 1997-2012") 
+
+p
+```
+
+```{r}
+rm(list=ls())
+```
+
+# Problem 3: PS4-1 data.table
+
+Setting up problem with data.table
+
+```{r}
+#install.packages("nycflights13") # Ran once
+# install.packages("tidyverse") # Ran once
+library(nycflights13)
+library(data.table)
+
+flights <- as.data.table(flights)
+airports <- as.data.table(airports)
+planes <- as.data.table(planes)
+```
+
+## (a)
+
+```{r}
+departure_delays <- left_join(flights, airports, by = c("origin"="faa")) %>% # This line ensures the names show up instead of faa codes
+  select(dep_delay, name) %>% # only getting the needed info
+  group_by(name) %>% # data aggregated by airport name
+  filter(n() > 10) %>% # only show results with at least 10 flights
+  summarize(med_delays = median(dep_delay, na.rm=TRUE),
+            mean_delays = mean(dep_delay, na.rm=TRUE)
+            ) %>% # get the means and medians
+  arrange(desc(mean_delays)) %>% # ensures the table displays in order of descending mean delay
+  ungroup() %>% # needed
+  print(n=Inf) # will print all rows
+
+```
+
+```{r}
+arrival_delays <- left_join(flights, airports, by = c("dest"="faa")) %>% # This line ensures the names show up instead of faa codes
+  select(arr_delay, name) %>% # only getting the needed info
+  group_by(name) %>% # data aggregated by airport name
+  filter(n() > 10) %>% # only show results with at least 10 flights
+  summarize(med_delays = median(arr_delay, na.rm=TRUE),
+            mean_delays = mean(arr_delay, na.rm=TRUE)
+            ) %>% # get the means and medians
+  arrange(desc(mean_delays)) %>% # ensures the table displays in order of descending mean delay
+  ungroup() %>% # needed
+  print(n=Inf) # will print all rows
+```
+
+## (b)
+
+```{r}
+fastest_model <- left_join(flights, planes, by = c("tailnum" = "tailnum")) %>% # connects the table with all the flights with the one describing what kind of plane was used
+  select(model, air_time, distance) %>% # getting needed info
+  mutate(air_speed_mph = distance/(air_time/60)) %>% # calculating flight speed in MPH
+  group_by(model) %>% 
+  summarise(avg_speed_mph = mean(air_speed_mph, na.rm=TRUE),
+            number_flights = n()) %>% # calculating the average speed and counting how many flights
+  arrange(desc(avg_speed_mph)) %>% # ensuring descending order on average speed
+  ungroup() %>% 
+  head(1) %>% # selecting only the first (fastest) result
+  print() # printing the fastest row with speed, model, and number of flights taken
+
+```
+
+```{r}
+rm(list=ls())
+```
+
+# Problem 2: get_Temp()
+
+```{r}
+
+#' Get Temperature
+#'
+#' @param month a numeric or string that indicates the month
+#' @param year a number indicating year
+#' @param data dataset from where to find the temperature values
+#' @param celsius a boolean determining if the temperatures are celsius or farenheit, default is farenheit
+#' @param average_fn the function that tells how to process the data, default is mean
+#'
+#' @return Processed temperature value
+#' @export
+#'
+#' @examples
+get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean){
+  # Process month input
+  month_vector <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+  if(is.numeric(month)){
+    if(month < 1 | month > 12){stop("month must be in range 1-12")}
+    month <- month_vector[month]
+  }
+  else if (is.character(month)){
+    month <- month %>%substr(start=1,stop=3)
+    if(!any(month %in% month_vector)){ stop("month string does not contain valid month")}
+  }
+  else{stop("month must be numeric or character ")}
+  
+  # Process year input
+  if(!is.numeric(year)){stop("year must be a number")}
+  # Ensure year is in range
+  years <- data %>% distinct(year)
+  if(!any(year %in% years$year)){stop("year string does not contain a valid year")}
+
+  # Process data input
+  if(!is.data.frame(data)){stop("data must be a data frame")}
+  # Process celsius input
+  if(!is.logical(celsius)){stop("average_fn must be a function")}
+  # Process average_fn input
+  if(!is.function(average_fn)){stop("average_fn must be a function")}
+  
+  temp <- data %>% 
+    filter(month == !!month, year == !!year) %>% 
+    select(temp) %>% #print
+    summarize(avg_temp = average_fn(temp)) %>% 
+    pull(avg_temp)
+    
+  # Convert to Celsius if celsius is true
+    if (celsius){
+      temp <- (temp-32)/1.8
+    }
+  
+  temp %>% round(digits = 3) %>% return
+}
+
+```
+
+Testing the function:
+
+```{r}
+# These should pass
+nnmaps <- read.csv("chicago-nmmaps.csv")
+get_temp("Apr", 1999, data = nnmaps)
+get_temp("Jul", 1999, data = nnmaps)
+get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
+get_temp(10, 1998, data = nnmaps, average_fn = median)
+get_temp("November", 1999, data = nnmaps, celsius = TRUE,
+         average_fn = function(x) {
+           x %>% sort -> x
+           x[2:(length(x) - 1)] %>% mean %>% return
+         })
+
+# added july test case becasue I was missing the "!!" in the filter statement, so it was always giving the same data
+```
+
+The following should (and do) fail:
+
+```{r}
+#get_temp(13, 1998, data = nnmaps)
+```
+
+```{r}
+#get_temp(2, 2005, data = nnmaps)
+```
+
+```{r}
+rm(list=ls())
+```

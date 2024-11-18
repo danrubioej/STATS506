@@ -1,0 +1,38 @@
+---
+title: "Final Project"
+author: "Daniel Rubio-Ejchel"
+format: html
+editor: visual
+---
+
+## Final Project Calculations
+
+# Initializing Data
+
+```{r}
+rm(list=ls())
+setwd("/Users/danrubio/Desktop/STATS 506/Final Project/")
+```
+
+Load needed libraries
+
+```{r}
+# Installed by running once
+# install.packages("sf")
+
+# Load the sf package
+library(sf)
+
+```
+
+Load Datasets
+
+```{r}
+health_data <- read.csv("Medicare Physician & Other Practitioners - by Geography and Service/2022/MUP_PHY_R24_P05_V10_D22_Geo.csv")
+
+```
+
+```{r}
+walk_data_path <-"WalkabilityIndex/Natl_WI.gdb" 
+walk_data <- st_read(dsn=walk_data_path, layer=st_layers(walk_data_path)[[1]])
+```
