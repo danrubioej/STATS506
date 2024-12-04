@@ -22,17 +22,146 @@ Load needed libraries
 
 # Load the sf package
 library(sf)
+library(data.table)
 
 ```
 
 Load Datasets
 
 ```{r}
-health_data <- read.csv("Medicare Physician & Other Practitioners - by Geography and Service/2022/MUP_PHY_R24_P05_V10_D22_Geo.csv")
+walk_data_path <-"WalkabilityIndex/Natl_WI.gdb" 
+raw_walk_data <- st_read(dsn=walk_data_path, layer=st_layers(walk_data_path)[[1]]) # uses FIPS
+raw_hosp_data_zc <- read.csv("Hospital_Service_Area_2023.csv")
+raw_zip_to_county <- read.csv("zip_code_database.csv")
+raw_fips_to_county <- read.csv("county_fips_master.csv")
+```
 
+Cleaning up hospital data
+
+```{r warning=FALSE}
+hosp_data_zc <- as.data.table(raw_hosp_data_zc)
+hosp_data_zc <- hosp_data_zc[ , .(days_sick=sum(as.numeric(TOTAL_DAYS_OF_CARE),na.rm=TRUE),
+                                  cost=sum(as.numeric(TOTAL_CHARGES),na.rm=TRUE),
+                                  illnesses = sum(as.numeric(TOTAL_CASES),na.rm=TRUE)), 
+                                  by = "ZIP_CD_OF_RESIDENCE"] |>
+  _[2:.N,.(zip = as.character(ZIP_CD_OF_RESIDENCE), cost, days_sick, illnesses)]|># rename zip, remove na row, reorder rows
+  _[, zip := sprintf("%05s",zip)] # add appropriate leading 0s for zip codes
+rm(raw_hosp_data_zc)
+```
+
+Cleaning up Zip to county
+
+```{r}
+zip_to_county <- as.data.table(raw_zip_to_county)
+zip_to_county <- zip_to_county[,.(zip,county,state)]|># extract appropriate columns
+  _[, zip := sprintf("%05s",zip)]|> # add appropriate leading 0s for zip codes
+  _[county!="", .(zip,county,state)] # remove any with empty county
+rm(raw_zip_to_county)
+```
+
+Clean up FIPS to county and create state abbreviation to number index
+
+```{r warning=FALSE}
+fips_to_county <- as.data.table(raw_fips_to_county)
+state_name_num <- unique(fips_to_county[,.(state_abbr, state=sprintf("%02s",state))])|>
+  _[state!="NA",.(state_abbr,state)] # remove any with empty county
+  
+
+fips_to_county <- fips_to_county[, .(fips = paste0(sprintf("%02s",state),sprintf("%03s",county)),county_name,state = sprintf("%02s",state))]
+
+rm(raw_fips_to_county)
+```
+
+Clean up walk data
+
+```{r}
+walk_data <- as.data.table(raw_walk_data)
+walk_data <- walk_data[, .(fips=paste0(sprintf("%02s",STATEFP),sprintf("%03s",COUNTYFP)), population = TotPop,walk = NatWalkInd,area = Ac_Land)]|>
+  _[,.(tot_population=sum(population),avg_walk = mean(walk),tot_area=sum(area)),by = fips]
+rm(raw_walk_data)
+```
+
+Joining data
+
+```{r}
+hosp_data_county <- merge(hosp_data_zc, zip_to_county, by="zip",all=FALSE)|>
+  _[cost!="NaN"] # remove any with empty county
+hosp_data_county_num_state <- merge(hosp_data_county,state_name_num, by.x ="state", by.y="state_abbr", all=FALSE)
+hosp_data_county_num_state <- setNames(hosp_data_county_num_state, c("abbr_state",
+                                                                     "zip",
+                                                                     "cost",
+                                                                     "days_sick",
+                                                                     "illnesses",
+                                                                     "county_name",
+                                                                     "state"  ))
+hosp_data_by_CS <- hosp_data_county_num_state[ , .(cost = sum(cost),
+                                                  days_sick = sum(days_sick),
+                                                  illnesses = sum(illnesses)),
+                                              by = .(state, county_name)]|>
+  _[, .(CS = paste(state, county_name),cost,days_sick,illnesses)]
+
+fips_to_county_by_CS <- fips_to_county[, .(fips,CS = paste(state,county_name))]
+
+hosp_to_fips <- merge(hosp_data_by_CS,fips_to_county_by_CS, by="CS", all=FALSE)
+
+merged_data <- merge(hosp_to_fips,walk_data, by="fips", all=FALSE)
+```
+
+Clearing all unneeded data
+
+```{r}
+rm(list=setdiff(ls(), "merged_data"))
+merged_data_pc <- merged_data[, .(fips,
+                                   CS,
+                                   cost_per_capita=cost/tot_population,
+                                   days_sick_per_capita=days_sick/tot_population,
+                                   illnesses_per_capita=illnesses/tot_population,
+                                   avg_walk,
+                                   tot_area,
+                                    tot_population,
+                                  density = tot_population/tot_area)]
 ```
 
 ```{r}
-walk_data_path <-"WalkabilityIndex/Natl_WI.gdb" 
-walk_data <- st_read(dsn=walk_data_path, layer=st_layers(walk_data_path)[[1]])
+hist(merged_data$avg_walk)
+hist(merged_data$cost)
+hist(merged_data_pc$cost_per_capita)
+```
+
+```{r}
+hist(log(merged_data$avg_walk))
+hist(log(merged_data$cost))
+hist(log(merged_data_pc$cost_per_capita))
+```
+
+```{r}
+hist(merged_data_pc$avg_walk)
+hist(merged_data_pc$cost)
+```
+
+```{r}
+library(plotly)
+library(ggplot2)
+```
+
+```{r}
+p <- ggplot(merged_data)+
+  geom_point(aes(x = avg_walk, y = log(cost), color = log(tot_population) ))
+p
+```
+
+```{r}
+p <- ggplot(merged_data_pc)+
+  geom_point(aes(x = avg_walk, y = cost_per_capita, color = log(tot_population) ))+
+  labs(x="Average Walk Score", y="Cost Per Capita", color="Log of Population")
+ggplotly(p)
+```
+
+```{r}
+mod <- lm(cost_per_capita ~ avg_walk + tot_population + density, data = merged_data_pc)
+summary(mod)
+```
+
+```{r}
+
 ```

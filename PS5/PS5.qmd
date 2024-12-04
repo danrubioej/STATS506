@@ -349,136 +349,38 @@ planes <- as.data.table(planes)
 ## (a)
 
 ```{r}
-departure_delays <- left_join(flights, airports, by = c("origin"="faa")) %>% # This line ensures the names show up instead of faa codes
-  select(dep_delay, name) %>% # only getting the needed info
-  group_by(name) %>% # data aggregated by airport name
-  filter(n() > 10) %>% # only show results with at least 10 flights
-  summarize(med_delays = median(dep_delay, na.rm=TRUE),
-            mean_delays = mean(dep_delay, na.rm=TRUE)
-            ) %>% # get the means and medians
-  arrange(desc(mean_delays)) %>% # ensures the table displays in order of descending mean delay
-  ungroup() %>% # needed
-  print(n=Inf) # will print all rows
+flights[ , 
+         .(mean_delay = mean(dep_delay, na.rm = TRUE),
+            median_delay = median(dep_delay,na.rm = TRUE))
+         ,by=origin] |> # First dt call calculates mean  and median delay by origin
+  merge(x=_, airports,
+        by.x = "origin",
+        by.y = "faa")|> # merge with airports table to get name joining on  origin/faa code
+  _[ , .(name, median_delay, mean_delay)] # print out name and stats
 
 ```
 
 ```{r}
-arrival_delays <- left_join(flights, airports, by = c("dest"="faa")) %>% # This line ensures the names show up instead of faa codes
-  select(arr_delay, name) %>% # only getting the needed info
-  group_by(name) %>% # data aggregated by airport name
-  filter(n() > 10) %>% # only show results with at least 10 flights
-  summarize(med_delays = median(arr_delay, na.rm=TRUE),
-            mean_delays = mean(arr_delay, na.rm=TRUE)
-            ) %>% # get the means and medians
-  arrange(desc(mean_delays)) %>% # ensures the table displays in order of descending mean delay
-  ungroup() %>% # needed
-  print(n=Inf) # will print all rows
+flights[, .N , by = dest] |> # gets how many rows of each dest there are 
+  _[N>=10] |>  # filters all the rows with less than 10 flights
+  merge(x = _, y = flights)|> # merges these rows applying the filter to the main data
+  _[ , .(mean_delay = mean(arr_delay, na.rm = TRUE),
+        median_delay = median(arr_delay,na.rm = TRUE))
+    , by = dest] |> # call calculates mean and median arrival by dest on filtered dests
+  merge(x=_, airports,
+        by.x = "dest",
+        by.y = "faa")|># merge with airports table to get name joining on  dest/faa code
+  _[ order(-mean_delay), .(name, median_delay, mean_delay)] # print out name and stats
+
 ```
 
 ## (b)
 
 ```{r}
-fastest_model <- left_join(flights, planes, by = c("tailnum" = "tailnum")) %>% # connects the table with all the flights with the one describing what kind of plane was used
-  select(model, air_time, distance) %>% # getting needed info
-  mutate(air_speed_mph = distance/(air_time/60)) %>% # calculating flight speed in MPH
-  group_by(model) %>% 
-  summarise(avg_speed_mph = mean(air_speed_mph, na.rm=TRUE),
-            number_flights = n()) %>% # calculating the average speed and counting how many flights
-  arrange(desc(avg_speed_mph)) %>% # ensuring descending order on average speed
-  ungroup() %>% 
-  head(1) %>% # selecting only the first (fastest) result
-  print() # printing the fastest row with speed, model, and number of flights taken
+merge(flights, planes, by = "tailnum") |> # merge tables to get model name
+  _[ , .(avg_speed_mph = mean(distance/(air_time/60), na.rm=TRUE), .N),by = model]|> # calculates averae speed in mph for each model alongside number of flights flown 
+  _[avg_speed_mph == max(avg_speed_mph)] # returns only the fastest model
 
-```
-
-```{r}
-rm(list=ls())
-```
-
-# Problem 2: get_Temp()
-
-```{r}
-
-#' Get Temperature
-#'
-#' @param month a numeric or string that indicates the month
-#' @param year a number indicating year
-#' @param data dataset from where to find the temperature values
-#' @param celsius a boolean determining if the temperatures are celsius or farenheit, default is farenheit
-#' @param average_fn the function that tells how to process the data, default is mean
-#'
-#' @return Processed temperature value
-#' @export
-#'
-#' @examples
-get_temp <- function(month, year, data, celsius = FALSE, average_fn = mean){
-  # Process month input
-  month_vector <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
-  if(is.numeric(month)){
-    if(month < 1 | month > 12){stop("month must be in range 1-12")}
-    month <- month_vector[month]
-  }
-  else if (is.character(month)){
-    month <- month %>%substr(start=1,stop=3)
-    if(!any(month %in% month_vector)){ stop("month string does not contain valid month")}
-  }
-  else{stop("month must be numeric or character ")}
-  
-  # Process year input
-  if(!is.numeric(year)){stop("year must be a number")}
-  # Ensure year is in range
-  years <- data %>% distinct(year)
-  if(!any(year %in% years$year)){stop("year string does not contain a valid year")}
-
-  # Process data input
-  if(!is.data.frame(data)){stop("data must be a data frame")}
-  # Process celsius input
-  if(!is.logical(celsius)){stop("average_fn must be a function")}
-  # Process average_fn input
-  if(!is.function(average_fn)){stop("average_fn must be a function")}
-  
-  temp <- data %>% 
-    filter(month == !!month, year == !!year) %>% 
-    select(temp) %>% #print
-    summarize(avg_temp = average_fn(temp)) %>% 
-    pull(avg_temp)
-    
-  # Convert to Celsius if celsius is true
-    if (celsius){
-      temp <- (temp-32)/1.8
-    }
-  
-  temp %>% round(digits = 3) %>% return
-}
-
-```
-
-Testing the function:
-
-```{r}
-# These should pass
-nnmaps <- read.csv("chicago-nmmaps.csv")
-get_temp("Apr", 1999, data = nnmaps)
-get_temp("Jul", 1999, data = nnmaps)
-get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
-get_temp(10, 1998, data = nnmaps, average_fn = median)
-get_temp("November", 1999, data = nnmaps, celsius = TRUE,
-         average_fn = function(x) {
-           x %>% sort -> x
-           x[2:(length(x) - 1)] %>% mean %>% return
-         })
-
-# added july test case becasue I was missing the "!!" in the filter statement, so it was always giving the same data
-```
-
-The following should (and do) fail:
-
-```{r}
-#get_temp(13, 1998, data = nnmaps)
-```
-
-```{r}
-#get_temp(2, 2005, data = nnmaps)
 ```
 
 ```{r}
